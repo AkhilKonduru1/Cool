@@ -1,75 +1,497 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { AdventureResult, AdventureSpinner } from '@/components/AdventureComponents';
+import LocationInput from '@/components/LocationInput';
+import { NotificationCenter, ShareModal, SignInModal } from '@/components/ModalComponents';
+import { ActivitySelector, DailyStreakWidget, MemoryCapsule, UserStats } from '@/components/WidgetComponents';
+import { apiService, User } from '@/services/apiService';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+interface Location {
+  latitude: number;
+  longitude: number;
+  address: string;
+}
+
+interface Adventure {
+  title: string;
+  description: string;
+  emoji: string;
+  estimatedTime: string;
+  cost: string;
+  location: string;
+  tips: string[];
+  category: string;
+}
 
 export default function HomeScreen() {
+  const [currentAdventure, setCurrentAdventure] = useState<Adventure | null>(null);
+  const [availableActivities, setAvailableActivities] = useState<Adventure[]>([]);
+  const [userLocation, setUserLocation] = useState<Location | null>(null);
+  const [showResult, setShowResult] = useState(false);
+  const [showActivitySelector, setShowActivitySelector] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [resetCounter, setResetCounter] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // User stats - now comes from backend
+  const [userStats, setUserStats] = useState({
+    points: 0,
+    level: 1,
+    streak: 0,
+    adventuresCompleted: 0,
+    badgesEarned: 0,
+  });
+
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const authenticated = await apiService.isAuthenticated();
+      if (authenticated) {
+        const userProfile = await apiService.getProfile();
+        setUser(userProfile);
+        setUserStats({
+          points: userProfile.points,
+          level: userProfile.level,
+          streak: userProfile.streak,
+          adventuresCompleted: userProfile.adventures_completed,
+          badgesEarned: userProfile.badges_earned,
+        });
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.error('Authentication check failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAdventureGenerated = (adventures: Adventure[]) => {
+    if (!isAuthenticated) {
+      setShowSignIn(true);
+      return;
+    }
+    setAvailableActivities(adventures);
+    setShowActivitySelector(true);
+  };
+
+  const handleActivitySelected = async (activity: Adventure) => {
+    setCurrentAdventure(activity);
+    setShowActivitySelector(false);
+    setShowResult(true);
+    
+    // Save adventure to backend
+    if (isAuthenticated) {
+      try {
+        await apiService.saveAdventure({
+          title: activity.title,
+          description: activity.description,
+          location: activity.location,
+          category: activity.category,
+          points_earned: 50, // Default points
+        });
+        
+        // Refresh user stats
+        const userProfile = await apiService.getProfile();
+        setUserStats({
+          points: userProfile.points,
+          level: userProfile.level,
+          streak: userProfile.streak,
+          adventuresCompleted: userProfile.adventures_completed,
+          badgesEarned: userProfile.badges_earned,
+        });
+      } catch (error) {
+        console.error('Failed to save adventure:', error);
+      }
+    }
+  };
+
+  const handleLocationSet = (location: Location) => {
+    setUserLocation(location);
+  };
+
+  const handleSaveToMemory = (adventure: Adventure) => {
+    // This will be handled by the MemoryCapsule component
+  };
+
+  const handleGetDirections = () => {
+    // In a real app, this would open maps with directions
+    console.log('Getting directions for:', currentAdventure);
+  };
+
+  const handleNewAdventure = () => {
+    setShowResult(false);
+    setShowActivitySelector(false);
+    setCurrentAdventure(null);
+    setAvailableActivities([]);
+    setResetCounter(prev => prev + 1); // Trigger reset in AdventureSpinner
+  };
+
+  const handleShareAdventure = async (friends: string[], message: string) => {
+    if (!isAuthenticated) {
+      setShowSignIn(true);
+      return;
+    }
+    
+    try {
+      // In a real implementation, you would send the share request to your backend
+      console.log('Sharing adventure with:', friends, 'Message:', message);
+      Alert.alert('Shared!', 'Your adventure has been shared with your friends!');
+    } catch (error) {
+      console.error('Failed to share adventure:', error);
+      Alert.alert('Error', 'Failed to share adventure. Please try again.');
+    }
+  };
+
+  const handleNotificationPress = (notification: any) => {
+    console.log('Notification pressed:', notification);
+    // Handle different notification types
+  };
+
+  const handleLevelUp = () => {
+    Alert.alert('Level Up!', 'Congratulations on reaching a new level!');
+  };
+
+  const handleStreakMilestone = () => {
+    Alert.alert('Streak Milestone!', 'Keep up the great work with your adventure streak!');
+  };
+
+  const handleStreakUpdate = async (newStreak: number) => {
+    if (!isAuthenticated) return;
+    
+    try {
+      // Update streak in backend
+      console.log('Streak updated to:', newStreak);
+      // In a real implementation, you would call an API to update the streak
+    } catch (error) {
+      console.error('Failed to update streak:', error);
+    }
+  };
+
+  const handleSignIn = async (email: string, password: string) => {
+    try {
+      const response = await apiService.signIn(email, password);
+      setUser(response.user);
+      setUserStats({
+        points: response.user.points,
+        level: response.user.level,
+        streak: response.user.streak,
+        adventuresCompleted: response.user.adventures_completed,
+        badgesEarned: response.user.badges_earned,
+      });
+      setIsAuthenticated(true);
+      setShowSignIn(false);
+      Alert.alert('Welcome back!', `Hello ${response.user.username}!`);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleSignUp = async (email: string, password: string, username: string) => {
+    try {
+      const response = await apiService.signUp(email, password, username);
+      setUser(response.user);
+      setUserStats({
+        points: response.user.points,
+        level: response.user.level,
+        streak: response.user.streak,
+        adventuresCompleted: response.user.adventures_completed,
+        badgesEarned: response.user.badges_earned,
+      });
+      setIsAuthenticated(true);
+      setShowSignIn(false);
+      Alert.alert('Welcome to Eventure!', `Hello ${response.user.username}! Let's start your first adventure!`);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await apiService.signOut();
+      setIsAuthenticated(false);
+      setUser(null);
+      setUserStats({
+        points: 0,
+        level: 1,
+        streak: 0,
+        adventuresCompleted: 0,
+        badgesEarned: 0,
+      });
+      Alert.alert('Signed out', 'You have been signed out successfully.');
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <LinearGradient
+        colors={['#FF6B9D', '#C44569', '#8E44AD']}
+        style={styles.header}
+      >
+        <View style={styles.headerTop}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.appTitle}>Eventure</Text>
+            <Text style={styles.appSubtitle}>Turn Everyday Moments into Mini-Adventures</Text>
+            {isAuthenticated && user && (
+              <Text style={styles.welcomeText}>Welcome back, {user.username}!</Text>
+            )}
+          </View>
+          <View style={styles.headerRight}>
+            {isAuthenticated ? (
+              <TouchableOpacity 
+                style={styles.notificationButton}
+                onPress={() => setShowNotifications(true)}
+              >
+                <Ionicons name="notifications" size={24} color="#FFFFFF" />
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>3</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={styles.signInButton}
+                onPress={() => setShowSignIn(true)}
+              >
+                <Text style={styles.signInButtonText}>Sign In</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={styles.content}>
+        <UserStats
+          user={{
+            level: userStats.level,
+            points: userStats.points,
+            adventures_completed: user?.adventures_completed || 0,
+            badges_earned: user?.badges_earned || 0,
+          }}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+
+        <DailyStreakWidget
+          currentStreak={userStats.streak}
+          longestStreak={14}
+          onStreakUpdate={handleStreakUpdate}
+        />
+        
+        <LocationInput onLocationSet={handleLocationSet} />
+        
+        {userLocation && (
+          <>
+            <AdventureSpinner 
+              onAdventureGenerated={handleAdventureGenerated}
+              userLocation={userLocation}
+              resetTrigger={resetCounter}
+            />
+            
+            {showActivitySelector && availableActivities.length > 0 && (
+              <ActivitySelector
+                activities={availableActivities}
+                onActivitySelect={handleActivitySelected}
+              />
+            )}
+            
+            {showResult && currentAdventure && (
+              <AdventureResult
+                adventure={currentAdventure}
+                onSaveToMemory={handleSaveToMemory}
+                onGetDirections={handleGetDirections}
+                onShare={() => setShowShareModal(true)}
+                onNewAdventure={handleNewAdventure}
+              />
+            )}
+          </>
+        )}
+
+        {!userLocation && (
+          <View style={styles.getStartedContainer}>
+            <Text style={styles.getStartedTitle}>Start Your First Adventure</Text>
+            <Text style={styles.getStartedText}>
+              Set your location above to begin discovering amazing activities near you!
+            </Text>
+            <TouchableOpacity 
+              style={styles.getStartedButton}
+              onPress={() => {
+                if (!isAuthenticated) {
+                  setShowSignIn(true);
+                } else {
+                  Alert.alert('Set Location', 'Please set your location using the location input above to start your adventure!');
+                }
+              }}
+            >
+              <LinearGradient
+                colors={['#FF6B9D', '#C44569']}
+                style={styles.gradientButton}
+              >
+                <Text style={styles.getStartedButtonText}>
+                  {isAuthenticated ? 'Set Location to Start' : 'Sign In to Start'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <MemoryCapsule memories={[]} onViewMemories={() => {}} />
+      </View>
+
+      <ShareModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        adventure={currentAdventure ? {
+          title: currentAdventure.title,
+          description: currentAdventure.description,
+          emoji: currentAdventure.emoji,
+          location: currentAdventure.location,
+        } : {
+          title: 'Sample Adventure',
+          description: 'A fun adventure to share',
+          emoji: '🎯',
+          location: 'Sample Location',
+        }}
+        onShare={handleShareAdventure}
+      />
+
+      <NotificationCenter
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onNotificationPress={handleNotificationPress}
+      />
+
+      <SignInModal
+        visible={showSignIn}
+        onClose={() => setShowSignIn(false)}
+        onSignIn={handleSignIn}
+        onSignUp={handleSignUp}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
   },
-  stepContainer: {
-    gap: 8,
+  header: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  appSubtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    lineHeight: 22,
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginTop: 4,
+  },
+  notificationButton: {
+    position: 'relative',
+    padding: 8,
+  },
+  signInButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  signInButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  notificationBadge: {
     position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#FFD700',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadgeText: {
+    color: '#2D3436',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  content: {
+    flex: 1,
+    paddingBottom: 20,
+  },
+  getStartedContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    margin: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  getStartedTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  getStartedText: {
+    fontSize: 16,
+    color: '#6C757D',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  getStartedButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  gradientButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  getStartedButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
