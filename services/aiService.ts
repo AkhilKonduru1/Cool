@@ -2,7 +2,7 @@ import { AdventureRequest, AdventureResponse } from '@/types/adventure';
 import Constants from 'expo-constants';
 
 class AIService {
-  private static readonly API_KEY = Constants.expoConfig?.extra?.groqApiKey || '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';
+  private static readonly API_KEY = Constants.expoConfig?.extra?.groqApiKey || 'YOUR_GROQ_API_KEY_HERE';
   private static readonly API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
   static async generateAdventures(request: AdventureRequest): Promise<AdventureResponse[]> {

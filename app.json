@@ -45,7 +45,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "groqApiKey": "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"
+      "groqApiKey": "YOUR_GROQ_API_KEY_HERE"
     }
   }
 }

@@ -27,13 +27,23 @@ A streamlined React Native app built with Expo that helps users discover excitin
    npm install
    ```
 
-2. Start the development server
+2. Set up your Groq API key
+
+   - Get your API key from [Groq Console](https://console.groq.com/)
+   - Update `app.json` with your actual API key:
+   ```json
+   "extra": {
+     "groqApiKey": "your_actual_api_key_here"
+   }
+   ```
+
+3. Start the development server
 
    ```bash
    npx expo start
    ```
 
-3. Open the app in your preferred environment:
+4. Open the app in your preferred environment:
    - [Expo Go](https://expo.dev/go) for quick testing
    - [iOS Simulator](https://docs.expo.dev/workflow/ios-simulator/)
    - [Android Emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
