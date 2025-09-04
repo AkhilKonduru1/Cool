@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { Alert, Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const { width } = Dimensions.get('window');
+// const { width } = Dimensions.get('window'); // Unused for now
 
 // Adventure Spinner Component
 interface AdventureSpinnerProps {
