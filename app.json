@@ -45,7 +45,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "groqApiKey": "YOUR_GROQ_API_KEY_HERE"
+      "groqApiKey": process.env.GROQ_API_KEY || ""
     }
   }
 }
